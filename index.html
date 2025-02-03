@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Blog App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Poppins", sans-serif;
+        }
+
+        body {
+            background: #1E1E2E;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ffcc00;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-top: 20px;
+            color: #00d4ff;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #282A36;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.1);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #44475A;
+            color: #fff;
+            outline: none;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            background: #ffcc00;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #ffaa00;
+        }
+
+        .blog-list {
+            margin-top: 20px;
+        }
+
+        .blog-card {
+            background: #44475A;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px auto;
+            width: 100%;
+            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.1);
+            transition: 0.3s;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .blog-card:hover {
+            transform: scale(1.02);
+        }
+
+        .blog-image {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-right: 15px;
+        }
+
+        .blog-content {
+            flex-grow: 1;
+            text-align: left;
+        }
+
+        .blog-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+
+        .blog-description {
+            font-size: 15px;
+            color: #ddd;
+            margin-top: 5px;
+        }
+
+        .blog-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .delete-btn, .edit-btn {
+            padding: 6px 12px;
+            font-size: 14px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .edit-btn {
+            background: #00bcd4;
+        }
+
+        .delete-btn:hover, .edit-btn:hover {
+            background: #cc0000;
+        }
+    </style>
+</head>
+<body>
+    <h1>📝 Blog App</h1>
+
+    <div class="container">
+        <h2>Create New Blog</h2>
+        <input type="text" id="title" placeholder="Enter blog title">
+        <textarea id="content" placeholder="Enter blog content"></textarea>
+        <input type="file" id="image" accept="image/*">
+
+        <button onclick="createBlog()">Publish Blog</button>
+    </div>
+
+    <div class="container" id="editFormContainer" style="display:none;">
+        <h2>Edit Blog</h2>
+        <input type="text" id="editTitle" placeholder="Edit blog title">
+        <textarea id="editContent" placeholder="Edit blog content"></textarea>
+        <input type="file" id="editImage" accept="image/*">
+
+        <button onclick="updateBlog()">Update Blog</button>
+        <button onclick="cancelEdit()">Cancel</button>
+    </div>
+
+    <h2>📌 All Blogs</h2>
+    <div class="blog-list" id="blogList"></div>
+
+    <script>
+        const API_URL = "http://localhost:5000/blogs";
+        let editingBlogId = null;
+
+        async function fetchBlogs() {
+            let response = await fetch(API_URL);
+            let blogs = await response.json();
+            document.getElementById("blogList").innerHTML = blogs.map(blog => 
+                `<div class="blog-card">
+                    ${blog.imageUrl ? `<img src="${blog.imageUrl}" alt="Blog Image" class="blog-image">` : ""}
+                    <div class="blog-content">
+                        <div class="blog-title">${blog.title}</div>
+                        <div class="blog-description">${blog.content}</div>
+                    </div>
+                    <div class="blog-actions">
+                        <button class="edit-btn" onclick="editBlog('${blog._id}', '${blog.title}', '${blog.content}', '${blog.imageUrl}')">✏️ Edit</button>
+                        <button class="delete-btn" onclick="deleteBlog('${blog._id}')">🗑️ Delete</button>
+                    </div>
+                </div>`).join("");
+        }
+
+        async function createBlog() {
+            let title = document.getElementById("title").value;
+            let content = document.getElementById("content").value;
+            let image = document.getElementById("image").files[0];
+
+            if (!title || !content) {
+                alert("⚠️ Please enter title and content!");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("title", title);
+            formData.append("content", content);
+            formData.append("image", image);
+
+            await fetch(API_URL, {
+                method: "POST",
+                body: formData
+            });
+
+            document.getElementById("title").value = "";
+            document.getElementById("content").value = "";
+            document.getElementById("image").value = "";
+            fetchBlogs();
+        }
+
+        async function editBlog(id, title, content, imageUrl) {
+            editingBlogId = id; // Store the blog ID that we are editing
+
+            // Show the edit form and populate it with current blog data
+            document.getElementById("editFormContainer").style.display = "block";
+            document.getElementById("editTitle").value = title;
+            document.getElementById("editContent").value = content;
+
+            // Display the image if available
+            if (imageUrl) {
+                document.getElementById("editImage").setAttribute("src", imageUrl);
+            } else {
+                document.getElementById("editImage").removeAttribute("src");
+            }
+        }
+
+        const formData = new FormData();
+formData.append('title', updatedTitle);
+formData.append('content', updatedContent);
+if (updatedImage) {
+    formData.append('image', updatedImage); // This is the file input field
+}
+
+fetch(`http://localhost:5000/blogs/${blogId}`, {
+    method: 'PUT',
+    body: formData,
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Blog updated:', data);
+})
+.catch(error => {
+    console.error('Error:', error);
+});
+
+
+        async function updateBlog() {
+            let title = document.getElementById("editTitle").value;
+            let content = document.getElementById("editContent").value;
+            let image = document.getElementById("editImage").files[0];
+
+            if (!title || !content) {
+                alert("⚠️ Please enter title and content!");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("title", title);
+            formData.append("content", content);
+            if (image) formData.append("image", image);
+
+            // Update the blog using PUT request with the blog ID
+            await fetch(`${API_URL}/${editingBlogId}`, {
+                method: "PUT",
+                body: formData
+            });
+
+            // Reset form and fetch updated blogs
+            cancelEdit();
+            fetchBlogs();
+        }
+
+        async function deleteBlog(blogId) {
+            await fetch(`${API_URL}/${blogId}`, {
+                method: "DELETE",
+            });
+            fetchBlogs();
+        }
+
+        function cancelEdit() {
+            document.getElementById("editFormContainer").style.display = "none";
+            editingBlogId = null;
+            document.getElementById("editTitle").value = "";
+            document.getElementById("editContent").value = "";
+            document.getElementById("editImage").value = "";
+            document.getElementById("editImage").removeAttribute("src");
+        }
+
+        fetchBlogs();
+    </script>
+</body>
+</html>
